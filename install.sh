@@ -85,7 +85,7 @@ one_click_install_menu() {
       ;;
     2)
       # TODO: 混合云安装
-      hybrid_cloud
+      hybrid_install
       ;;
     3)
       main_menu
@@ -170,16 +170,6 @@ function install_docker_compose() {
 # 获取主机 ip，并设置为环境变量
 function get_host_ip {
   # 提示用户手动输入IP地址，默认为本宿主机IP
-#  echo -e "${GREEN}请输入要安装的目标IP地址（默认为本宿主机IP地址 $(hostname -I | awk '{print $1}')）：${NC}"
-#  read target_ip
-#  if [ -z "$target_ip" ]; then
-#  target_ip=$(hostname -I | awk '{print $1}')
-#  fi
-#  echo -e "${YELLOW}您输入的目标IP地址为 ${target_ip}${NC}"
-#
-#  # 将目标IP地址保存为环境变量
-#  export TARGET_IP=$target_ip
-
   read -p "请输入IP地址（默认为宿主机IP地址: $(hostname -I | awk '{print $1}')）：" ip_address
     if [ -z "$ip_address" ]; then
         ip_address=$(hostname -I | awk '{print $1}')
@@ -237,10 +227,11 @@ function private_install() {
 }
 
 # 混合云安装
-function hybrid_cloud() {
+function hybrid_install() {
   # TODO: 混合云安装
   echo -e "${YELLOW}此功能待开发${NC}"
 }
 
+# 执行主菜单函数，入口
 main_menu
 
