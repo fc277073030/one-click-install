@@ -232,6 +232,6 @@ function hybrid_install() {
   echo -e "${YELLOW}此功能待开发${NC}"
 }
 
-# 执行主菜单函数，入口
+# 执行主菜单函数
 main_menu
 
