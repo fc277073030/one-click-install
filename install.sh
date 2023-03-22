@@ -1,10 +1,10 @@
 #!/bin/bash
-# Author: fanchao
+# Author: FANCHAO
 # 一键安装脚本
 
 set -euo pipefail  # 严格模式，以确保执行期间的任何错误都会导致脚本立即退出。
 
-export DEBIAN_FRONTEND=noninteractive
+#export DEBIAN_FRONTEND=noninteractive
 
 # 设置颜色常量
 readonly BLUE='\033[0;34m'
@@ -32,7 +32,7 @@ readonly NC='\033[0m' # 重置颜色
 
 # 首先检查系统是否为 Ubuntu 系统
 if [ $(lsb_release -si) != "Ubuntu" ]; then
-  echo "Error: This script requires Ubuntu operating system."
+  echo " ${RED}错误: 这个脚本只支持 Ubuntu 系统！{NC}"
   exit 1
 fi
 
@@ -49,24 +49,27 @@ main_menu() {
   read -rp "请输入选项: " choice
   case $choice in
     1)
-      install_menu
+      # 一键安装子菜单
+      one_click_install_menu
       ;;
     2)
-      maintenance_menu
+      # 运维工具子菜单
+      ops_menu
       ;;
     3)
+      # 退出
       exit 0
       ;;
     *)
       echo -e "${RED}无效选项，请重试${NC}"
       sleep 1
-      main_menu
+      main_menu  # 退回主菜单
       ;;
   esac
 }
 
 # 一键安装子菜单
-install_menu() {
+one_click_install_menu() {
   clear
   echo -e "${YELLOW}==============================${NC}"
   echo -e "${YELLOW}         一键安装菜单         ${NC}"
@@ -77,8 +80,8 @@ install_menu() {
   read -rp "请输入选项: " choice
   case $choice in
     1)
-      # TODO: privo
-      private_install
+      # TODO: 私有云安装
+      private_install  # 调用私有化安装函数
       ;;
     2)
       # TODO: 混合云安装
@@ -96,7 +99,7 @@ install_menu() {
 }
 
 # 运维工具子菜单
-maintenance_menu() {
+ops_menu() {
   clear
   echo -e "${YELLOW}==============================${NC}"
   echo -e "${YELLOW}         运维工具菜单         ${NC}"
@@ -122,64 +125,49 @@ maintenance_menu() {
     *)
       echo -e "${RED}无效选项，请重试${NC}"
       sleep 1
-      maintenance_menu
+      ops_menu
   esac
 }
 
 ############### 以下是安装软件的函数 ##########################
 
-# 安装docker
-function install_docker() {
-  # 检查是否已经安装了 Docker，如果已经安装，输出消息并退出
-  if command -v docker &>/dev/null; then
-    echo -e "${GREEN}Docker 已经安装在此系统上${NC}"
-#    exit 0
-  fi
-
-  # 检查系统是否为 Ubuntu
-  if [ -f /etc/lsb-release ] && grep -q "Ubuntu" /etc/lsb-release; then
-    # 更新包列表
-    sudo apt-get update
-
-    # 安装 Docker
-    sudo apt-get install docker.io -y
-
-    # 启用 Docker 服务
-    sudo systemctl enable --now docker
+# 安装 docker
+install_docker() {
+  # 检查是否已经安装 docker
+  if [ -x "$(command -v docker)" ]; then
+    echo -e "${GREEN}Docker 已经安装。${NC}"
   else
-    # 如果系统不是 Ubuntu，则输出错误消息并退出
-    echo "不支持的系统。Docker 安装失败。"
-    exit 1
+    echo -e "${YELLOW}开始安装docker....${NC}"
+#    sudo apt update
+    sudo apt install -y docker.io
+    echo -e "${GREEN}Docker 已经安装。${NC}"
   fi
-
-#  exit 0
 }
 
-# 安装docker-compose
-install_docker_compose() {
-  install_docker_compose() {
-  if [ ! -f "/usr/local/bin/docker-compose" ]; then
-    if [ -f "./bin/docker-compose" ]; then
-      echo "docker-compose is found in the local ./bin directory. Installing..."
-      sudo cp ./bin/docker-compose /usr/local/bin/
-      sudo chmod +x /usr/local/bin/docker-compose
-      echo "docker-compose installed successfully."
-    else
-      echo "docker-compose is not found in the local directory. Downloading..."
-      sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o docker-compose
-      sudo cp docker-compose /usr/local/bin/
-      sudo chmod +x /usr/local/bin/docker-compose
-      echo "docker-compose installed successfully."
-    fi
+# 安装 docker-compose
+function install_docker_compose() {
+  # 检查是否已经安装docker-compose
+  if command -v docker-compose >/dev/null 2>&1 ; then
+    echo -e "${GREEN}docker-compose 已经安装。${NC}"
+    exit 0
+  fi
+
+  # 安装docker-compose
+  echo "开始安装docker-compose..."
+  sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+  sudo chmod +x /usr/local/bin/docker-compose
+
+  # 检查是否成功安装docker-compose
+  if command -v docker-compose >/dev/null 2>&1 ; then
+      echo "docker-compose安装成功！"
   else
-    echo "docker-compose is already installed."
+      echo "${RED}docker-compose 安装失败，请手动安装。{NC}"
   fi
 }
-}
 
 
 
-# 获取ip
+# 获取主机 ip，并设置为环境变量
 function get_host_ip {
   # 提示用户手动输入IP地址，默认为本宿主机IP
 #  echo -e "${GREEN}请输入要安装的目标IP地址（默认为本宿主机IP地址 $(hostname -I | awk '{print $1}')）：${NC}"
@@ -197,7 +185,7 @@ function get_host_ip {
         ip_address=$(hostname -I | awk '{print $1}')
     fi
 
-    echo -e "${GREEN}您选择的IP地址为：$ip_address${NC}"
+    echo -e "您选择的IP地址为：${GREEN}$ip_address${NC}"
 
     # 验证IP地址格式是否有效
     if [[ ! $ip_address =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
@@ -206,7 +194,26 @@ function get_host_ip {
     fi
 
     # 将目标IP地址保存为环境变量
-    export TARGET_IP=$ip_address
+    export HOST_IP=$ip_address
+
+    # 检查 .env 文件是否存在
+    if [ -f ".env" ]; then
+      # 检查 .env 文件是否包含 HOST_IP 的值
+      if grep -q "HOST_IP" .env; then
+        # 如果 .env 文件包含 HOST_IP 的值，则更新它
+        sed -i "s/HOST_IP=.*/HOST_IP=$ip_address/" .env
+        echo -e "HOST_IP 的值已更新为 ${GREEN}$ip_address。${NC}"
+      else
+        # 如果 .env 文件不包含 HOST_IP 的值，则将其添加到文件末尾
+        echo "HOST_IP=$ip_address" >> .env
+        echo "HOST_IP 的值已设置为 $ip_address。"
+      fi
+    else
+      # 如果 .env 文件不存在，则创建它并写入 HOST_IP 的值
+      echo "HOST_IP=$ip_address" > .env
+      echo "已创建 .env 文件并设置 HOST_IP 的值为 $ip_address。"
+    fi
+
 }
 
 # 检查安装是否成功
@@ -223,8 +230,8 @@ check_success() {
 
 # 私有化安装
 function private_install() {
-  echo -e "${GREEN}正在进行私有化安装...${NC}"
-#  get_host_ip
+  get_host_ip
+  echo -e "${YELLOW}开始进行私有化安装...${NC}"
   install_docker
   install_docker_compose
 }
