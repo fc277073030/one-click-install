@@ -16,18 +16,18 @@ readonly YELLOW='\033[1;33m'
 readonly NC='\033[0m' # 重置颜色
 
 # 打印欢迎信息
-#clear
-#echo -e "${BLUE}=========================================="
-#echo -e "||    ${YELLOW}欢迎使用一键安装脚本！${BLUE}    ||"
-#echo -e "==========================================${NC}"
-#echo -e "${CYAN}这个脚本将自动安装软件包。${NC}"
-#echo -e "${CYAN}请确保您已经具有必要的权限。${NC}"
-#
-## 平滑过渡
-#for i in {1..50}; do
-#  echo -ne "${GREEN}.${NC}"
-#  sleep 0.02
-#done
+clear
+echo -e "${BLUE}=========================================="
+echo -e "||    ${YELLOW}欢迎使用一键安装脚本！${BLUE}    ||"
+echo -e "==========================================${NC}"
+echo -e "${CYAN}这个脚本将自动安装软件包。${NC}"
+echo -e "${CYAN}请确保您已经具有必要的权限。${NC}"
+
+# 平滑过渡
+for i in {1..40}; do
+  echo -ne "${GREEN}.${NC}"
+  sleep 0.02
+done
 #echo -e "\n"
 
 # 首先检查系统是否为 Ubuntu 系统
@@ -38,10 +38,10 @@ fi
 
 
 # 主菜单选项
-main_menu() {
+function main_menu() {
   clear
   echo -e "${YELLOW}==============================${NC}"
-  echo -e "${YELLOW}         一键安装脚本         ${NC}"
+  echo -e "${YELLOW}         主菜单         ${NC}"
   echo -e "${YELLOW}==============================${NC}"
   echo -e "${GREEN} 1.${NC} 一键安装"
   echo -e "${GREEN} 2.${NC} 运维工具"
@@ -69,7 +69,7 @@ main_menu() {
 }
 
 # 一键安装子菜单
-one_click_install_menu() {
+function one_click_install_menu() {
   clear
   echo -e "${YELLOW}==============================${NC}"
   echo -e "${YELLOW}         一键安装菜单         ${NC}"
@@ -99,7 +99,7 @@ one_click_install_menu() {
 }
 
 # 运维工具子菜单
-ops_menu() {
+function ops_menu() {
   clear
   echo -e "${YELLOW}==============================${NC}"
   echo -e "${YELLOW}         运维工具菜单         ${NC}"
@@ -129,10 +129,8 @@ ops_menu() {
   esac
 }
 
-############### 以下是安装软件的函数 ##########################
-
 # 安装 docker
-install_docker() {
+function install_docker() {
   # 检查是否已经安装 docker
   if [ -x "$(command -v docker)" ]; then
     echo -e "${GREEN}Docker 已经安装。${NC}"
@@ -144,26 +142,85 @@ install_docker() {
   fi
 }
 
-# 安装 docker-compose
+# 安装docker-compose
 function install_docker_compose() {
-  # 检查是否已经安装docker-compose
-  if command -v docker-compose >/dev/null 2>&1 ; then
-    echo -e "${GREEN}docker-compose 已经安装。${NC}"
-    exit 0
-  fi
+    # 检查是否已经安装docker-compose
+    if command -v docker-compose >/dev/null 2>&1; then
+        echo -e "${GREEN}docker-compose 已经安装，无需再次安装"
+        return
+    fi
 
-  # 安装docker-compose
-  echo "开始安装docker-compose..."
-  sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-  sudo chmod +x /usr/local/bin/docker-compose
+    # 检查本地是否有docker-compose二进制文件
+    if [ -f ./bin/docker-compose ]; then
+        sudo cp ./bin/docker-compose /usr/local/bin/docker-compose
+        sudo chmod +x /usr/local/bin/docker-compose
+        echo -e "${GREEN}docker-compose 已经本地安装{NC}"
+        return
+    fi
 
-  # 检查是否成功安装docker-compose
-  if command -v docker-compose >/dev/null 2>&1 ; then
-      echo "docker-compose安装成功！"
+    # 下载并安装docker-compose
+    echo "Installing docker-compose from the Internet"
+    sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
+
+    # 检查是否成功安装docker-compose
+    if command -v docker-compose >/dev/null 2>&1 ; then
+      echo -e "${GREEN}docker-compose安装成功！${NC}"
+    else
+      echo -e "${RED}docker-compose 安装失败，请重新安装。{NC}"
+    fi
+}
+
+
+
+# 安装NVIDIA驱动函数
+function install_nvidia_driver() {
+  # 检查当前是否已安装NVIDIA驱动
+  if ! lsmod | grep nvidia &> /dev/null; then
+    # 没有安装NVIDIA驱动，开始安装最新版本的驱动程序
+    echo "正在安装最新版本的NVIDIA驱动..."
+    sudo apt update
+    sudo apt install -y nvidia-driver-510
+    # 安装完成后重新加载NVIDIA驱动模块
+    sudo modprobe -r nvidia-drm
+    sudo modprobe nvidia-drm
+    echo "安装完成！"
   else
-      echo "${RED}docker-compose 安装失败，请手动安装。{NC}"
+    # 已经安装了NVIDIA驱动，输出信息并退出
+    echo -e "${GREEN}nvidia-driver 已经安装。无需再次安装。${NC}"
   fi
 }
+
+# 安装 Nvidia-Container-Toolkit
+function install_nvidia_container_toolkit() {
+    if ! dpkg -s nvidia-container-toolkit >/dev/null 2>&1; then
+        # 安装必要的依赖项
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+
+        # 添加 NVIDIA apt-key
+        curl -sL https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+
+        # 添加 NVIDIA apt 仓库
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        curl -sL https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+
+        # 更新 apt 软件包缓存
+        sudo apt-get update
+
+        # 安装 NVIDIA Container Toolkit
+        sudo apt-get install -y nvidia-container-toolkit
+
+        # 重启 Docker 服务
+        sudo systemctl restart docker
+
+        echo -e "${GREEN}NVIDIA Container Toolkit 安装完成.{NC}"
+    else
+        echo -e "${GREEN}NVIDIA Container Toolkit 已经安装.无需再次安装${NC}"
+    fi
+}
+
+
 
 
 
@@ -207,7 +264,7 @@ function get_host_ip {
 }
 
 # 检查安装是否成功
-check_success() {
+function check_success() {
   if [ $? -eq 0 ]; then
     echo -e "${GREEN}安装成功！${NC}"
     exit 0
@@ -224,6 +281,8 @@ function private_install() {
   echo -e "${YELLOW}开始进行私有化安装...${NC}"
   install_docker
   install_docker_compose
+  install_nvidia_driver
+  install_nvidia_container_toolkit
 }
 
 # 混合云安装
